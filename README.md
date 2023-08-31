@@ -1,0 +1,2 @@
+# ServerChanPush2TelegramBot
+一款利用Server酱把消息转推到Telegram Bot的工具。
