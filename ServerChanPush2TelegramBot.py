@@ -63,35 +63,34 @@ def write_pending_messages(messages):
 
 # 发送 Telegram 消息
 def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
-
     # 重新读取配置文件
     all_bots_config = load_config()
-    
     # 用于标记是否找到匹配的关键词
     found = False
-    
     # 遍历所有主 bot_id 的配置
     for config in all_bots_config:
         main_bot_id = config['main_bot_id']
+        main_chat_id = config.get('main_chat_id', '')  # 如果没有main_chat_id，默认为空字符串
         sub_bots = config['sub_bots']
-        
-        # 如果传入的 bot_id 匹配某个主 bot_id
-        if bot_id == main_bot_id:
-            # 检查关键词，如果匹配则替换 bot_id
+        # 如果传入的 bot_id 和 chat_id 匹配某个主 bot_id 和主 chat_id
+        if bot_id == main_bot_id and chat_id == main_chat_id:
+            # 检查关键词，如果匹配则替换 bot_id 和 chat_id
             for sub_bot in sub_bots:
                 for keyword in sub_bot['keywords']:
                     keyword_decode = keyword.decode('utf-8') if isinstance(keyword, bytes) else keyword
                     title_decode = title.decode('utf-8') if isinstance(title, bytes) else title
                     if keyword_decode.lower() in title_decode.lower():
                         bot_id = sub_bot['bot_id']
+                        chat_id = sub_bot['chat_id']  # 新增：替换 chat_id
                         found = True
                         break
                 if found:
                     break
             
-            # 一旦找到匹配的主 bot_id，就跳出循环
+            # 一旦找到匹配的主 bot_id 和主 chat_id，就跳出循环
             if found:
                 break
+
 
     api_url = f"https://api.telegram.org/bot{bot_id}/sendMessage"
     proxies = {
@@ -158,6 +157,7 @@ def index():
     #unescaped_desp = json.loads(f'"{escaped_desp}"')
     
     
+    
     bot_id = request.args.get('bot_id') or (received_data.get('bot_id') if received_data else None)
     chat_id = request.args.get('chat_id') or (received_data.get('chat_id') if received_data else None)
     title = request.args.get('title') or (received_data.get('title') if received_data else None)
@@ -177,7 +177,11 @@ def index():
 
     # 如果 error_list 不为空，返回错误信息和 400 状态码
     if error_list:
-        return jsonify({"error": error_list}), 400
+        TestStatus=request.args.get('TestStatus') or (received_data.get('TestStatus') if received_data else None)
+        if TestStatus is None:
+            return jsonify({"error": error_list}), 400
+        else:
+            return jsonify({"ok": "the test passed"}), 200
 
 
     pending_messages = read_pending_messages()
@@ -194,6 +198,12 @@ def index():
         write_pending_messages(new_pending_messages)
         return jsonify(response), 200
     else:
+        if "【This is a delayed message】" not in desp:
+            if desp is None:
+                desp = f"【This is a delayed message】"
+            else:
+                desp = desp + f"\n\n【This is a delayed message】"
+                                
         pending_messages.append({
             'bot_id': bot_id,
             'chat_id': chat_id,
