@@ -11,7 +11,7 @@ from logging.handlers import TimedRotatingFileHandler
 current_date = datetime.now().strftime("%Y-%m-%d")
 
 # 创建一个处理器，该处理器每天午夜都会创建一个新的日志文件
-handler = TimedRotatingFileHandler(f"received_requests_{current_date}.log", when="midnight", interval=1, backupCount=10)
+handler = TimedRotatingFileHandler(f"received_requests_{current_date}.log", when="midnight", interval=1, backupCount=10, encoding='utf-8')
 handler.suffix = "%Y-%m-%d"
 
 # 配置日志
