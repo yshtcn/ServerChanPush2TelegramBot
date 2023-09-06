@@ -4,9 +4,23 @@ import logging
 import json
 import re
 from urllib.parse import unquote
+from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
 
-# 设置日志级别和日志文件
-logging.basicConfig(level=logging.INFO,filename="received_requests.log",  filemode="a", encoding='utf-8')
+# 获取当前日期
+current_date = datetime.now().strftime("%Y-%m-%d")
+
+# 创建一个处理器，该处理器每天午夜都会创建一个新的日志文件
+handler = TimedRotatingFileHandler(f"received_requests_{current_date}.log", when="midnight", interval=1, backupCount=10)
+handler.suffix = "%Y-%m-%d"
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[handler],
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 # 初始化 Flask 应用
 app = Flask(__name__)
@@ -21,7 +35,8 @@ def load_config():
  # 保存接收到的请求数据
 def save_received_data(received_url, received_data):
     try:
-        with open("received_data.json", "a", encoding='utf-8') as f:
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        with open(f"received_data_{current_date}.json", "a", encoding='utf-8') as f:
             json.dump({"received_url": received_url, "received_data": received_data}, f, ensure_ascii=False)
             f.write("\n")
     except Exception as e:
@@ -30,7 +45,8 @@ def save_received_data(received_url, received_data):
 # 保存发送的请求数据
 def save_sent_data(api_url, payload):
     try:
-        with open("sent_data.json", "a", encoding='utf-8') as f:
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        with open(f"sent_data_{current_date}.json", "a", encoding='utf-8') as f:
             json.dump({"sent_url": api_url, "sent_data": payload}, f, ensure_ascii=False)
             f.write("\n")
     except Exception as e:
@@ -212,7 +228,7 @@ def index():
             'url': url
         })
         write_pending_messages(pending_messages)
-        return jsonify({"error": "Failed to send message, added to pending list"}), 400
+        return jsonify({"error": "Failed to send message, added to pending list"}), 200
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
