@@ -228,7 +228,7 @@ def index():
             'url': url
         })
         write_pending_messages(pending_messages)
-        return jsonify({"error": "Failed to send message, added to pending list"}), 400
+        return jsonify({"error": "Failed to send message, added to pending list"}), 200
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
