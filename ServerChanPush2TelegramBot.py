@@ -119,7 +119,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     text = title  # 初始化 text 为 title
 
     text += f"\n\n{(desp.split(delimiter)[0] if delimiter and desp else desp) if desp else ''}"
-
+    text =text.rstrip()
 
 
     # 使用正则表达式来识别受影响的链接
@@ -131,7 +131,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
         text = text.replace(affected_url, corrected_url)
 
     if url:  # 如果有 url，添加到 text
-        text += f"\n\n[详情]({url})"
+        text += f"\n\n<a href=\"{url}\">详情：</a>"
         text += f"{url}"  # 直接添加 URL，Telegram 会自动处理预览
 
         text=unescape_url(text)
@@ -140,17 +140,17 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     payload = {
         'chat_id': chat_id,
         'text': text,
-        'parse_mode': 'markdown',
+        'parse_mode': 'HTML',
         'disable_web_page_preview': False  # 启用网页预览
     }
     try:
         response = requests.post(api_url, data=payload, proxies=proxies, timeout=2)
+        logging.info(f"response: {response.text}")
         if response.status_code == 200 and response.json().get("ok"):
             # 保存发送的请求数据
             converted_sent_data = convert_str_gbk_to_utf8(str(payload))
             save_sent_data(api_url,converted_sent_data)
             return True, response.json()
-
         else:
             return False, response.json()
     except requests.RequestException as e:
