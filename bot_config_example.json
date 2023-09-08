@@ -1,0 +1,20 @@
+
+[
+  {
+    "main_bot_id": "YOUR_MAIN_BOT_ID_HERE",
+    "main_chat_id": "YOUR_MAIN_CHAT_ID_HERE",
+    "sub_bots": [     
+      {
+        "bot_id": "YOUR_SUB_BOT_ID_1",
+        "chat_id": "YOUR_SUB_CHAT_ID_1",
+        "keywords": ["test"],
+        "delimiter": "---split---"
+      },
+      {
+        "bot_id": "YOUR_SUB_BOT_ID_2",
+        "chat_id": "YOUR_SUB_CHAT_ID_2",
+        "keywords": ["keyword3", "keyword4"]
+      }
+    ]
+  }
+]

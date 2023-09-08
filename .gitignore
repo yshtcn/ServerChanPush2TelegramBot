@@ -1,3 +1,9 @@
+received_requests_*
+received_data_*
+sent_data_*
+bot_config.json
+pending_messages.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
