@@ -119,7 +119,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     text = title  # 初始化 text 为 title
 
     text += f"\n\n{(desp.split(delimiter)[0] if delimiter and desp else desp) if desp else ''}"
-
+    text =text.rstrip()
 
 
     # 使用正则表达式来识别受影响的链接
