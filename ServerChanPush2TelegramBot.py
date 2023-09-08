@@ -11,7 +11,7 @@ from logging.handlers import TimedRotatingFileHandler
 current_date = datetime.now().strftime("%Y-%m-%d")
 
 # 创建一个处理器，该处理器每天午夜都会创建一个新的日志文件
-handler = TimedRotatingFileHandler(f"received_requests_{current_date}.log", when="midnight", interval=1, backupCount=10)
+handler = TimedRotatingFileHandler(f"received_requests_{current_date}.log", when="midnight", interval=1, backupCount=10, encoding='utf-8')
 handler.suffix = "%Y-%m-%d"
 
 # 配置日志
@@ -83,6 +83,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     all_bots_config = load_config()
     # 用于标记是否找到匹配的关键词
     found = False
+    delimiter = None
     # 遍历所有主 bot_id 的配置
     for config in all_bots_config:
         main_bot_id = config['main_bot_id']
@@ -97,15 +98,17 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
                     title_decode = title.decode('utf-8') if isinstance(title, bytes) else title
                     if keyword_decode.lower() in title_decode.lower():
                         bot_id = sub_bot['bot_id']
-                        chat_id = sub_bot['chat_id']  # 新增：替换 chat_id
+                        chat_id = sub_bot['chat_id']  # 替换 chat_id
+                        delimiter = sub_bot.get('delimiter')  # 获取隔断符配置
                         found = True
                         break
-                if found:
-                    break
-            
-            # 一旦找到匹配的主 bot_id 和主 chat_id，就跳出循环
             if found:
-                break
+                    break
+                
+        # 一旦找到匹配的主 bot_id 和主 chat_id，就跳出循环
+        if found:
+            break
+
 
 
     api_url = f"https://api.telegram.org/bot{bot_id}/sendMessage"
@@ -115,8 +118,8 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     }
     text = title  # 初始化 text 为 title
 
-    if desp:  # 如果有 desp，添加到 text
-        text += f"\n\n{desp}"
+    text += f"\n\n{(desp.split(delimiter)[0] if delimiter and desp else desp) if desp else ''}"
+
 
 
     # 使用正则表达式来识别受影响的链接
@@ -128,7 +131,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
         text = text.replace(affected_url, corrected_url)
 
     if url:  # 如果有 url，添加到 text
-        text += f"\n\n<a href=\"{url}\">详情：</a>"
+        text += f"\n\n[详情]({url})"
         text += f"{url}"  # 直接添加 URL，Telegram 会自动处理预览
 
         text=unescape_url(text)
@@ -137,7 +140,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     payload = {
         'chat_id': chat_id,
         'text': text,
-        'parse_mode': 'HTML',
+        'parse_mode': 'markdown',
         'disable_web_page_preview': False  # 启用网页预览
     }
     try:
