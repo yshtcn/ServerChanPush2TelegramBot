@@ -96,7 +96,8 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
                 for keyword in sub_bot['keywords']:
                     keyword_decode = keyword.decode('utf-8') if isinstance(keyword, bytes) else keyword
                     title_decode = title.decode('utf-8') if isinstance(title, bytes) else title
-                    if keyword_decode.lower() in title_decode.lower():
+                    desp_decode = desp.decode('utf-8') if isinstance(desp, bytes) and desp is not None else desp
+                    if (keyword_decode.lower() in title_decode.lower()) or (desp is not None and keyword_decode.lower() in desp_decode.lower()):
                         bot_id = sub_bot['bot_id']
                         chat_id = sub_bot['chat_id']  # 替换 chat_id
                         delimiter = sub_bot.get('delimiter')  # 获取隔断符配置
