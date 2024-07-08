@@ -9,6 +9,7 @@ from logging.handlers import TimedRotatingFileHandler
 import os
 import sys
 import shutil
+import base64
 
 # 获取当前日期
 current_date = datetime.now().strftime("%Y-%m-%d")
@@ -95,7 +96,12 @@ def convert_str_gbk_to_utf8(text_str):
 def read_pending_messages():
     try:
         with open(os.path.join(data_dir, "pending_messages.json"), "r") as f:
-            return json.load(f)
+            encoded_messages = json.load(f)
+            decoded_messages = []
+            for msg in encoded_messages:
+                decoded_msg = {key: base64.b64decode(value).decode('utf-8') if key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value for key, value in msg.items()}
+                decoded_messages.append(decoded_msg)
+            return decoded_messages
     except FileNotFoundError:
         return []
     except json.JSONDecodeError:
@@ -103,8 +109,12 @@ def read_pending_messages():
 
 # 写入待发送的消息
 def write_pending_messages(messages):
+    encoded_messages = []
+    for msg in messages:
+        encoded_msg = {key: base64.b64encode(value.encode('utf-8')).decode('utf-8') if key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value for key, value in msg.items()}
+        encoded_messages.append(encoded_msg)
     with open(os.path.join(data_dir, "pending_messages.json"), "w") as f:
-        json.dump(messages, f, ensure_ascii=False)
+        json.dump(encoded_messages, f, ensure_ascii=False)
 
 # 发送 Telegram 消息
 def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
@@ -219,8 +229,23 @@ def index():
         else:
             pending_messages = read_pending_messages()
             pending_count = len(pending_messages)
-            return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
+            if TestStatus == '1':
+                return jsonify({"ok": "the test passed"}), 200
+            elif TestStatus == '2':
+                return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
+            elif TestStatus == '3':
+                if pending_messages:
+                    new_pending_messages = []
+                    for msg in pending_messages:
+                        success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
+                        if not success:
+                            new_pending_messages.append(msg)
+                    write_pending_messages(new_pending_messages)
+                    return jsonify({"ok": "re-sent pending messages", "remaining_pending_messages_count": len(new_pending_messages)}), 200
+                else:
+                    return jsonify({"ok": "no pending messages to re-send"}), 200
 
+    # 原始的消息发送逻辑
     pending_messages = read_pending_messages()
 
     success, response = send_telegram_message(bot_id, chat_id, title, desp, url)
