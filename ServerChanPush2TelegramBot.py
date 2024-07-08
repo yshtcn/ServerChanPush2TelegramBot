@@ -217,7 +217,9 @@ def index():
         if TestStatus is None:
             return jsonify({"error": error_list}), 400
         else:
-            return jsonify({"ok": "the test passed"}), 200
+            pending_messages = read_pending_messages()
+            pending_count = len(pending_messages)
+            return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
 
     pending_messages = read_pending_messages()
 
