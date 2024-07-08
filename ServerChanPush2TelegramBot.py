@@ -240,7 +240,10 @@ def index():
             if TestStatus == '1':
                 return jsonify({"ok": "the test passed"}), 200
             elif TestStatus == '2':
-                return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
+                if pending_count == 0:
+                    return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
+                else:
+                    return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 202
             elif TestStatus == '3':
                 pending_messages = read_pending_messages()
                 pending_count = len(pending_messages)
@@ -251,7 +254,7 @@ def index():
                         if not success:
                             new_pending_messages.append(msg)
                     write_pending_messages(new_pending_messages)
-                    return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
+                    return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 202
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
 
@@ -285,7 +288,7 @@ def index():
             'url': url
         })
         write_pending_messages(pending_messages)
-        return jsonify({"error": "Failed to send message, added to pending list"}), 200
+        return jsonify({"error": "Failed to send message, added to pending list"}), 202
 
 if __name__ == "__main__":
     config = load_config()
