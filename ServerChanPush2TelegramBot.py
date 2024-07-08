@@ -99,7 +99,10 @@ def read_pending_messages():
             encoded_messages = json.load(f)
             decoded_messages = []
             for msg in encoded_messages:
-                decoded_msg = {key: base64.b64decode(value).decode('utf-8') if key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value for key, value in msg.items()}
+                decoded_msg = {
+                    key: base64.b64decode(value).decode('utf-8') if value is not None and key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value 
+                    for key, value in msg.items()
+                }
                 decoded_messages.append(decoded_msg)
             return decoded_messages
     except FileNotFoundError:
@@ -107,14 +110,19 @@ def read_pending_messages():
     except json.JSONDecodeError:
         return []
 
+
 # 写入待发送的消息
 def write_pending_messages(messages):
     encoded_messages = []
     for msg in messages:
-        encoded_msg = {key: base64.b64encode(value.encode('utf-8')).decode('utf-8') if key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value for key, value in msg.items()}
+        encoded_msg = {
+            key: base64.b64encode(value.encode('utf-8')).decode('utf-8') if value is not None and key in ['bot_id', 'chat_id', 'title', 'desp', 'url'] else value 
+            for key, value in msg.items()
+        }
         encoded_messages.append(encoded_msg)
     with open(os.path.join(data_dir, "pending_messages.json"), "w") as f:
         json.dump(encoded_messages, f, ensure_ascii=False)
+
 
 # 发送 Telegram 消息
 def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
@@ -234,6 +242,8 @@ def index():
             elif TestStatus == '2':
                 return jsonify({"ok": "the test passed", "pending_messages_count": pending_count}), 200
             elif TestStatus == '3':
+                pending_messages = read_pending_messages()
+                pending_count = len(pending_messages)
                 if pending_messages:
                     new_pending_messages = []
                     for msg in pending_messages:
@@ -241,9 +251,11 @@ def index():
                         if not success:
                             new_pending_messages.append(msg)
                     write_pending_messages(new_pending_messages)
-                    return jsonify({"ok": "re-sent pending messages", "remaining_pending_messages_count": len(new_pending_messages)}), 200
+                    return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
                 else:
-                    return jsonify({"ok": "no pending messages to re-send"}), 200
+                    return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
+
+
 
     # 原始的消息发送逻辑
     pending_messages = read_pending_messages()
