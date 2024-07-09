@@ -163,30 +163,46 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     text = escape(text)  # 处理 HTML 标签
     text = re.sub(r'<[^>]+>', '', text)  # 移除所有 HTML 标签
 
+    # 添加对消息长度的检查和拆分
+    max_length = 4096  # Telegram 允许的最大消息长度
+    messages = []
+    while len(text) > max_length:
+        part = text[:max_length]
+        last_space = part.rfind(' ')
+        if last_space != -1:
+            part = part[:last_space]
+        messages.append(part)
+        text = text[len(part):].strip()
+    messages.append(text)
+
     if url:
-        text += f"\n\n<a href=\"{url}\">详情：</a>"
-        text += f"{url}"
-        text = unescape_url(text)
+        for i in range(len(messages)):
+            if i == len(messages) - 1:
+                messages[i] += f"\n\n<a href=\"{url}\">详情：</a>{url}"
+            messages[i] = unescape_url(messages[i])
 
-    payload = {
-        'chat_id': chat_id,
-        'text': text,
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': False
-    }
+    success = True
+    for msg in messages:
+        payload = {
+            'chat_id': chat_id,
+            'text': msg,
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': False
+        }
 
-    try:
-        response = requests.post(api_url, data=payload, proxies=proxies, timeout=2)
-        logging.info(f"response: {response.text}")
-        if response.status_code == 200 and response.json().get("ok"):
-            converted_sent_data = convert_str_gbk_to_utf8(str(payload))
-            save_sent_data(api_url, converted_sent_data)
-            return True, response.json()
-        else:
-            return False, response.json()
-    except requests.RequestException as e:
-        logging.error(f"Failed to send message: {e}")
-        return False, None
+        try:
+            response = requests.post(api_url, data=payload, proxies=proxies, timeout=2)
+            logging.info(f"response: {response.text}")
+            if response.status_code == 200 and response.json().get("ok"):
+                converted_sent_data = convert_str_gbk_to_utf8(str(payload))
+                save_sent_data(api_url, converted_sent_data)
+            else:
+                success = False
+        except requests.RequestException as e:
+            logging.error(f"Failed to send message: {e}")
+            success = False
+
+    return success, None if success else {"error": "Failed to send all parts of the message"}
 
 
 @app.route('/', methods=['GET', 'POST'])
