@@ -10,6 +10,7 @@ import os
 import sys
 import shutil
 import base64
+from html import escape
 
 # 获取当前日期
 current_date = datetime.now().strftime("%Y-%m-%d")
@@ -126,70 +127,58 @@ def write_pending_messages(messages):
 
 # 发送 Telegram 消息
 def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
-    # 重新读取配置文件
     all_bots_config = load_config()
-    # 用于标记是否找到匹配的关键词
     found = False
     delimiter = None
     api_url = None
     proxies = None
-    # 遍历所有主 bot_id 的配置
+
     for config in all_bots_config:
         main_bot_id = config['main_bot_id']
-        main_chat_id = config.get('main_chat_id', '')  # 如果没有main_chat_id，默认为空字符串
+        main_chat_id = config.get('main_chat_id', '')
         sub_bots = config['sub_bots']
         api_url = config.get('api_url', None)
         proxies = config.get('proxies', None)
-        # 如果传入的 bot_id 和 chat_id 匹配某个主 bot_id 和主 chat_id
         if bot_id == main_bot_id and chat_id == main_chat_id:
-            # 检查关键词，如果匹配则替换 bot_id 和 chat_id
             for sub_bot in sub_bots:
                 for keyword in sub_bot['keywords']:
                     keyword_decode = keyword.decode('utf-8') if isinstance(keyword, bytes) else keyword
                     title_decode = title.decode('utf-8') if isinstance(title, bytes) else title
                     if keyword_decode.lower() in title_decode.lower():
                         bot_id = sub_bot['bot_id']
-                        chat_id = sub_bot['chat_id']  # 替换 chat_id
-                        delimiter = sub_bot.get('delimiter')  # 获取隔断符配置
+                        chat_id = sub_bot['chat_id']
+                        delimiter = sub_bot.get('delimiter')
                         found = True
                         break
             if found:
                 break
-
-        # 一旦找到匹配的主 bot_id 和主 chat_id，就跳出循环
         if found:
             break
 
     api_url = api_url or f"https://api.telegram.org/bot{bot_id}/sendMessage"
-    text = title  # 初始化 text 为 title
+    text = title
     text += f"\n\n{(desp.split(delimiter)[0] if delimiter and desp else desp) if desp else ''}"
     text = text.rstrip()
 
-    # 使用正则表达式来识别受影响的链接
-    affected_urls = re.findall(r'(https|http|ftp)\\\\\\/\\\\\\/[\\w\\\\:\\\\/\\.\\-]+', text)
-    
-    # 对受影响的链接进行处理
-    for affected_url in affected_urls:
-        corrected_url = affected_url.replace('\\/', '/')
-        text = text.replace(affected_url, corrected_url)
+    text = escape(text)  # 处理 HTML 标签
+    text = re.sub(r'<[^>]+>', '', text)  # 移除所有 HTML 标签
 
-    if url:  # 如果有 url，添加到 text
+    if url:
         text += f"\n\n<a href=\"{url}\">详情：</a>"
-        text += f"{url}"  # 直接添加 URL，Telegram 会自动处理预览
+        text += f"{url}"
         text = unescape_url(text)
 
     payload = {
         'chat_id': chat_id,
         'text': text,
         'parse_mode': 'HTML',
-        'disable_web_page_preview': False  # 启用网页预览
+        'disable_web_page_preview': False
     }
 
     try:
         response = requests.post(api_url, data=payload, proxies=proxies, timeout=2)
         logging.info(f"response: {response.text}")
         if response.status_code == 200 and response.json().get("ok"):
-            # 保存发送的请求数据
             converted_sent_data = convert_str_gbk_to_utf8(str(payload))
             save_sent_data(api_url, converted_sent_data)
             return True, response.json()
@@ -198,6 +187,7 @@ def send_telegram_message(bot_id, chat_id, title, desp=None, url=None):
     except requests.RequestException as e:
         logging.error(f"Failed to send message: {e}")
         return False, None
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -253,10 +243,14 @@ def index():
                         success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
                         if not success:
                             new_pending_messages.append(msg)
+                    # 将失败的消息重新放在队尾
+                    new_pending_messages.extend(pending_messages)
                     write_pending_messages(new_pending_messages)
-                    return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 202
+                    return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
+
+
 
 
 
@@ -271,6 +265,8 @@ def index():
             success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
             if not success:
                 new_pending_messages.append(msg)
+        # 将失败的消息重新放在队尾
+        new_pending_messages.extend(pending_messages)
         write_pending_messages(new_pending_messages)
         return jsonify(response), 200
     else:
