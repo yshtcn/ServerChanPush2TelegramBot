@@ -243,16 +243,11 @@ def index():
                         success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
                         if not success:
                             new_pending_messages.append(msg)
-                    # 将失败的消息重新放在队尾
-                    new_pending_messages.extend(pending_messages)
+                    # 更新待发送消息列表，只包含失败的消息
                     write_pending_messages(new_pending_messages)
                     return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
-
-
-
-
 
     # 原始的消息发送逻辑
     pending_messages = read_pending_messages()
@@ -265,8 +260,7 @@ def index():
             success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
             if not success:
                 new_pending_messages.append(msg)
-        # 将失败的消息重新放在队尾
-        new_pending_messages.extend(pending_messages)
+        # 更新待发送消息列表，只包含失败的消息
         write_pending_messages(new_pending_messages)
         return jsonify(response), 200
     else:
@@ -290,3 +284,4 @@ if __name__ == "__main__":
     config = load_config()
     port = config[0].get("port", 5000)
     app.run(host='0.0.0.0', port=port)
+
