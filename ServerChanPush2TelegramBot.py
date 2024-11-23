@@ -92,6 +92,42 @@ def convert_str_gbk_to_utf8(text_str):
         return text_str
     except:
         return text_str  # 如果转换失败，则返回原始字符串
+    
+
+def send_messages_in_batches(batch_size=10):
+    """
+    批量发送待发送的消息，每次最多发送 batch_size 条。
+    :param batch_size: 每批次发送的最大消息数量
+    :return: 成功发送的数量和剩余待发送消息数量
+    """
+    pending_messages = read_pending_messages()
+    if not pending_messages:
+        return {"message": "No pending messages to send", "pending_messages_count": 0}
+
+    to_send = pending_messages[:batch_size]  # 取出前 batch_size 条消息
+    remaining_messages = pending_messages[batch_size:]  # 保留剩余的消息
+    failed_messages = []
+
+    for msg in to_send:
+        success, _ = send_telegram_message(
+            msg['bot_id'],
+            msg['chat_id'],
+            msg['title'],
+            msg.get('desp'),
+            msg.get('url')
+        )
+        if not success:
+            failed_messages.append(msg)
+
+    # 将失败的消息与剩余未尝试发送的消息合并，并写回文件
+    remaining_messages.extend(failed_messages)
+    write_pending_messages(remaining_messages)
+
+    return {
+        "message": "Batch processing completed",
+        "successfully_sent_count": len(to_send) - len(failed_messages),
+        "remaining_pending_messages_count": len(remaining_messages)
+    }
 
 # 读取待发送的消息
 def read_pending_messages():
@@ -264,6 +300,21 @@ def index():
                     return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
+            elif TestStatus == '4':
+                # 调用批量发送逻辑，每次最多发送10条
+                result = send_messages_in_batches(batch_size=10)
+
+                # 读取剩余待发送消息数量
+                remaining_messages = read_pending_messages()
+                remaining_count = len(remaining_messages)
+
+                # 返回结果中包含剩余待发送消息数量
+                return jsonify({
+                    "ok": "batch processed",
+                    "successfully_sent_count": result["successfully_sent_count"],
+                    "remaining_pending_messages_count": remaining_count,
+                    "message": result["message"]
+                }), 200
 
     # 原始的消息发送逻辑
     pending_messages = read_pending_messages()
@@ -295,6 +346,9 @@ def index():
         })
         write_pending_messages(pending_messages)
         return jsonify({"error": "Failed to send message, added to pending list"}), 202
+
+
+
 
 if __name__ == "__main__":
     config = load_config()
