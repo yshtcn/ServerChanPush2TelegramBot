@@ -301,6 +301,19 @@ def index():
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
             elif TestStatus == '4':
+                # 读取当前待发送消息数量
+                pending_messages = read_pending_messages()
+                pending_count = len(pending_messages)
+
+                if pending_count == 0:
+                    # 如果没有待发送消息，直接返回与 TestStatus == '3' 一致的结构
+                    return jsonify({
+                        "ok": "no pending messages to re-send",
+                        "pending_messages_count": pending_count,
+                        "remaining_pending_messages_count": 0,
+                        "successfully_sent_count": 0
+                    }), 200
+
                 # 调用批量发送逻辑，每次最多发送10条
                 result = send_messages_in_batches(batch_size=10)
 
@@ -308,13 +321,14 @@ def index():
                 remaining_messages = read_pending_messages()
                 remaining_count = len(remaining_messages)
 
-                # 返回结果中包含剩余待发送消息数量
+                # 返回结果与 TestStatus == '3' 保持一致，并增加成功发送条数
                 return jsonify({
                     "ok": "batch processed",
-                    "successfully_sent_count": result["successfully_sent_count"],
+                    "pending_messages_count": pending_count,
                     "remaining_pending_messages_count": remaining_count,
-                    "message": result["message"]
+                    "successfully_sent_count": result["successfully_sent_count"]
                 }), 200
+
 
     # 原始的消息发送逻辑
     pending_messages = read_pending_messages()
@@ -322,13 +336,13 @@ def index():
     success, response = send_telegram_message(bot_id, chat_id, title, desp, url)
 
     if success:
-        new_pending_messages = []
-        for msg in pending_messages:
-            success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
-            if not success:
-                new_pending_messages.append(msg)
-        # 更新待发送消息列表，只包含失败的消息
-        write_pending_messages(new_pending_messages)
+        # new_pending_messages = []
+        # for msg in pending_messages:
+        #     success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
+        #     if not success:
+        #         new_pending_messages.append(msg)
+        # # 更新待发送消息列表，只包含失败的消息
+        # write_pending_messages(new_pending_messages)
         return jsonify(response), 200
     else:
         if "【This is a delayed message】" not in desp:
