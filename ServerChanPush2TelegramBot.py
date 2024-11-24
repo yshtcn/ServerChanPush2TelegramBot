@@ -343,7 +343,30 @@ def index():
         #         new_pending_messages.append(msg)
         # # 更新待发送消息列表，只包含失败的消息
         # write_pending_messages(new_pending_messages)
-        return jsonify(response), 200
+        pending_messages = read_pending_messages()
+        pending_count = len(pending_messages)
+
+        if pending_count == 0:
+            # 如果没有待发送消息，直接返回与 TestStatus == '3' 一致的结构
+            return jsonify({
+            "ok": "send message success",
+            "response": response,
+        }), 200
+
+        # 调用批量发送逻辑，每次最多发送10条
+        result = send_messages_in_batches(batch_size=3)
+
+        # 读取剩余待发送消息数量
+        remaining_messages = read_pending_messages()
+        remaining_count = len(remaining_messages)
+
+        # 返回结果与 TestStatus == '3' 保持一致，并增加成功发送条数
+        return jsonify({
+            "ok": "send message success and batch processed",
+            "pending_messages_count": pending_count,
+            "remaining_pending_messages_count": remaining_count,
+            "successfully_sent_count": result["successfully_sent_count"]
+        }), 200
     else:
         current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if "【This is a delayed message】" not in desp:
