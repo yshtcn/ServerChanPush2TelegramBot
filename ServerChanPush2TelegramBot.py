@@ -315,7 +315,7 @@ def index():
                     }), 200
 
                 # 调用批量发送逻辑，每次最多发送10条
-                result = send_messages_in_batches(batch_size=10)
+                result = send_messages_in_batches(batch_size=3)
 
                 # 读取剩余待发送消息数量
                 remaining_messages = read_pending_messages()
@@ -354,7 +354,7 @@ def index():
         }), 200
 
         # 调用批量发送逻辑，每次最多发送10条
-        result = send_messages_in_batches(batch_size=3)
+        result = send_messages_in_batches(batch_size=2)
 
         # 读取剩余待发送消息数量
         remaining_messages = read_pending_messages()
