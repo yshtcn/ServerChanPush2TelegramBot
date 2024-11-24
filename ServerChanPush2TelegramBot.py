@@ -345,11 +345,12 @@ def index():
         # write_pending_messages(new_pending_messages)
         return jsonify(response), 200
     else:
+        current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if "【This is a delayed message】" not in desp:
             if desp is None:
-                desp = f"【This is a delayed message】"
+                desp = f"【This is a delayed message】\n\nTimestamp: {current_timestamp}"
             else:
-                desp = desp + f"\n\n【This is a delayed message】"
+                desp = desp + f"\n\n【This is a delayed message】\n\nTimestamp: {current_timestamp}"
 
         pending_messages.append({
             'bot_id': bot_id,
