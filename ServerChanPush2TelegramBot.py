@@ -247,7 +247,7 @@ def index():
     received_url = unquote(received_url)
     received_data = request.form.to_dict() if request.form else None
 
-    # 保存接收到的请求数据
+    # Save received request data
     converted_received_data = convert_str_gbk_to_utf8(str(received_data))
     save_received_data(received_url, converted_received_data)
 
@@ -260,10 +260,10 @@ def index():
     desp = request.args.get('desp') or (received_data.get('desp') if received_data else None)
     url = request.args.get('url') or (received_data.get('url') if received_data else None)
 
-    # 初始化一个空列表来保存错误信息
+    # Initialize empty list for error messages
     error_list = []
 
-    # 分别检查 bot_id, chat_id, 和 title 是否为空
+    # Check if bot_id, chat_id, and title are empty
     if bot_id is None:
         error_list.append("bot_id is a required field.")
     if chat_id is None:
@@ -271,7 +271,7 @@ def index():
     if title is None:
         error_list.append("title is a required field.")
 
-    # 如果 error_list 不为空，返回错误信息和 400 状态码
+    # If error_list is not empty, return error messages and 400 status code
     if error_list:
         TestStatus = request.args.get('TestStatus') or (received_data.get('TestStatus') if received_data else None)
         if TestStatus is None:
@@ -279,6 +279,7 @@ def index():
         else:
             pending_messages = read_pending_messages()
             pending_count = len(pending_messages)
+            
             if TestStatus == '1':
                 return jsonify({"ok": "the test passed"}), 200
             elif TestStatus == '2':
@@ -295,18 +296,15 @@ def index():
                         success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
                         if not success:
                             new_pending_messages.append(msg)
-                    # 更新待发送消息列表，只包含失败的消息
                     write_pending_messages(new_pending_messages)
                     return jsonify({"ok": "re-sent pending messages", "pending_messages_count": pending_count, "remaining_pending_messages_count": len(new_pending_messages)}), 200
                 else:
                     return jsonify({"ok": "no pending messages to re-send", "pending_messages_count": pending_count}), 200
             elif TestStatus == '4':
-                # 读取当前待发送消息数量
                 pending_messages = read_pending_messages()
                 pending_count = len(pending_messages)
 
                 if pending_count == 0:
-                    # 如果没有待发送消息，直接返回与 TestStatus == '3' 一致的结构
                     return jsonify({
                         "ok": "no pending messages to re-send",
                         "pending_messages_count": pending_count,
@@ -314,53 +312,68 @@ def index():
                         "successfully_sent_count": 0
                     }), 200
 
-                # 调用批量发送逻辑，每次最多发送10条
                 result = send_messages_in_batches(batch_size=3)
-
-                # 读取剩余待发送消息数量
                 remaining_messages = read_pending_messages()
                 remaining_count = len(remaining_messages)
 
-                # 返回结果与 TestStatus == '3' 保持一致，并增加成功发送条数
                 return jsonify({
                     "ok": "batch processed",
                     "pending_messages_count": pending_count,
                     "remaining_pending_messages_count": remaining_count,
                     "successfully_sent_count": result["successfully_sent_count"]
                 }), 200
+            elif TestStatus == '5':
+                pending_messages = read_pending_messages()
+                if not pending_messages:
+                    return jsonify({
+                        "ok": "no pending messages",
+                        "messages": []
+                    }), 200
+                
+                # Create a new list without bot_id for each message
+                safe_messages = []
+                for msg in pending_messages:
+                    safe_msg = {
+                        'chat_id': msg['chat_id'],
+                        'title': msg['title'],
+                        'desp': msg['desp'],
+                        'url': msg.get('url')
+                    }
+                    safe_messages.append(safe_msg)
+                
+                return jsonify({
+                    "ok": "pending messages retrieved",
+                    "messages": safe_messages,
+                    "total_count": len(safe_messages),
+                    "clear_messages_url": request.host_url + "?TestStatus=6"
+                }), 200
+            elif TestStatus == '6':
+                # Clear all pending messages
+                write_pending_messages([])
+                return jsonify({
+                    "ok": "all pending messages cleared",
+                    "remaining_messages_count": 0
+                }), 200
 
-
-    # 原始的消息发送逻辑
+    # Original message sending logic continues...
     pending_messages = read_pending_messages()
 
     success, response = send_telegram_message(bot_id, chat_id, title, desp, url)
 
     if success:
-        # new_pending_messages = []
-        # for msg in pending_messages:
-        #     success, _ = send_telegram_message(msg['bot_id'], msg['chat_id'], msg['title'], msg['desp'], msg.get('url'))
-        #     if not success:
-        #         new_pending_messages.append(msg)
-        # # 更新待发送消息列表，只包含失败的消息
-        # write_pending_messages(new_pending_messages)
         pending_messages = read_pending_messages()
         pending_count = len(pending_messages)
 
         if pending_count == 0:
-            # 如果没有待发送消息，直接返回与 TestStatus == '3' 一致的结构
             return jsonify({
             "ok": "send message success",
             "response": response,
         }), 200
 
-        # 调用批量发送逻辑，每次最多发送10条
         result = send_messages_in_batches(batch_size=2)
-
-        # 读取剩余待发送消息数量
         remaining_messages = read_pending_messages()
         remaining_count = len(remaining_messages)
 
-        # 返回结果与 TestStatus == '3' 保持一致，并增加成功发送条数
         return jsonify({
             "ok": "send message success and batch processed",
             "pending_messages_count": pending_count,
